@@ -144,6 +144,29 @@ export class SqlProxyServer {
     });
   }
 
+  getPort(): number {
+    return this.port;
+  }
+
+  private async tryListen(port: number, maxRetries: number = 10): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const server = this.app.listen(port, () => {
+        this.server = server;
+        resolve(port);
+      });
+
+      server.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE' && maxRetries > 0) {
+          console.log(`Port ${port} is in use, trying ${port + 1}...`);
+          server.close();
+          this.tryListen(port + 1, maxRetries - 1).then(resolve).catch(reject);
+        } else {
+          reject(err);
+        }
+      });
+    });
+  }
+
   async start(): Promise<void> {
     // Connect to the database
     console.log(`Connecting to ${this.config.db_engine}...`);
@@ -173,19 +196,17 @@ export class SqlProxyServer {
       console.log('');
     }
 
-    // Start the HTTP server
-    return new Promise((resolve) => {
-      this.server = this.app.listen(this.port, () => {
-        console.log(`SQL Proxy Server running on http://localhost:${this.port}`);
-        console.log('');
-        console.log('Endpoints:');
-        console.log(`  GET  http://localhost:${this.port}/health  - Health check`);
-        console.log(`  POST http://localhost:${this.port}/query   - Execute SQL query`);
-        console.log(`  GET  http://localhost:${this.port}/tables  - List tables`);
-        console.log('');
-        resolve();
-      });
-    });
+    // Start the HTTP server with auto port fallback
+    const actualPort = await this.tryListen(this.port);
+    this.port = actualPort;
+
+    console.log(`SQL Proxy Server running on http://localhost:${this.port}`);
+    console.log('');
+    console.log('Endpoints:');
+    console.log(`  GET  http://localhost:${this.port}/health  - Health check`);
+    console.log(`  POST http://localhost:${this.port}/query   - Execute SQL query`);
+    console.log(`  GET  http://localhost:${this.port}/tables  - List tables`);
+    console.log('');
   }
 
   async stop(): Promise<void> {

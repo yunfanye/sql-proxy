@@ -114,9 +114,10 @@ async function main(): Promise<void> {
   try {
     await server.start();
 
-    // Create tunnel if --public flag is set
+    // Create tunnel if --public flag is set (use actual port in case it changed)
     if (options.public) {
-      tunnelInfo = await createTunnel(port);
+      const actualPort = server.getPort();
+      tunnelInfo = await createTunnel(actualPort);
       console.log('');
       console.log('='.repeat(60));
       console.log('PUBLIC URL (accessible from anywhere):');
