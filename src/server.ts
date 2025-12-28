@@ -71,6 +71,9 @@ export class SqlProxyServer {
           return;
         }
 
+        // Log the raw SQL query
+        console.log(`[${new Date().toISOString()}] SQL: ${sql}`);
+
         // Validate the query against disallowed tables and read-only mode
         const validation = validateQuery(sql, this.config.disallowed_tables, !this.allowWrite);
 

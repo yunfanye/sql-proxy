@@ -6,8 +6,10 @@ A lightweight SQL proxy server that accepts SQL queries via HTTP and executes th
 
 - **Multi-database support**: Connect to PostgreSQL, MySQL, or Snowflake
 - **HTTP API**: Execute SQL queries via simple HTTP requests
+- **Read-only by default**: Only SELECT queries allowed unless `--allow-write` is specified
 - **Table access control**: Configure disallowed tables to prevent access to sensitive data
 - **SQL validation**: Parses and validates SQL queries before execution
+- **Query logging**: All SQL queries are logged to the console with timestamps
 - **Interactive setup**: Guided configuration wizard when no config file exists
 - **Zero configuration start**: Just run `npx @yunfanye/sql-proxy` to get started
 - **Public access**: Expose your server to the internet via Cloudflare tunnel with `--public`
@@ -103,6 +105,7 @@ npx @yunfanye/sql-proxy [options]
 |--------|-------------|---------|
 | `-p, --port <number>` | Port to run the server on | 3000 |
 | `-c, --config <path>` | Path to database config file | database_config.json |
+| `--allow-write` | Allow write operations (INSERT, UPDATE, DELETE, etc.) | Read-only |
 | `--public` | Create a Cloudflare tunnel for public access | - |
 | `-h, --help` | Display help information | - |
 | `-V, --version` | Display version number | - |
@@ -110,14 +113,20 @@ npx @yunfanye/sql-proxy [options]
 ### Examples
 
 ```bash
-# Start with default settings
+# Start in read-only mode (default)
 npx @yunfanye/sql-proxy
 
 # Start on a custom port
 npx @yunfanye/sql-proxy --port 8080
 
+# Start with write operations enabled
+npx @yunfanye/sql-proxy --allow-write
+
 # Start with public internet access
 npx @yunfanye/sql-proxy --public
+
+# Combine options
+npx @yunfanye/sql-proxy --port 8080 --allow-write --public
 
 # Display help
 npx @yunfanye/sql-proxy --help
@@ -191,6 +200,24 @@ List all available tables in the database.
 
 ## Security Features
 
+### Read-Only Mode (Default)
+
+By default, the server runs in read-only mode, only allowing SELECT queries. This prevents accidental or malicious data modifications.
+
+To enable write operations (INSERT, UPDATE, DELETE, CREATE, DROP, etc.), use the `--allow-write` flag:
+
+```bash
+npx @yunfanye/sql-proxy --allow-write
+```
+
+**Error Response (Write operation in read-only mode):**
+```json
+{
+  "success": false,
+  "error": "Write operations are not allowed. Server is running in read-only mode. Use --allow-write to enable write operations."
+}
+```
+
 ### Table Access Control
 
 Use the `disallowed_tables` configuration to prevent access to sensitive tables:
@@ -214,6 +241,17 @@ All SQL queries are parsed using [node-sql-parser](https://github.com/taozhi8833
 - Extract table names from the query
 - Validate against the disallowed tables list
 - Detect malformed SQL before execution
+
+### Query Logging
+
+All SQL queries are logged to the console with timestamps for auditing and debugging:
+
+```
+[2025-01-15T10:30:45.123Z] POST /query
+[2025-01-15T10:30:45.125Z] SQL: SELECT * FROM products WHERE id = 1
+[2025-01-15T10:30:46.456Z] POST /query
+[2025-01-15T10:30:46.458Z] SQL: UPDATE products SET price = 29.99 WHERE id = 1
+```
 
 ## Public Access with Cloudflare Tunnel
 
