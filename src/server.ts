@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { DatabaseConfig, DatabaseConnector } from './types';
-import { createConnector } from './connectors';
-import { validateQuery } from './validator';
+import { DatabaseConfig } from './types';
+import { DatabaseClient } from './client';
 
 export interface ServerOptions {
   port: number;
@@ -11,18 +10,19 @@ export interface ServerOptions {
 
 export class SqlProxyServer {
   private app: express.Application;
-  private connector: DatabaseConnector;
+  private client: DatabaseClient;
   private config: DatabaseConfig;
   private port: number;
   private server: any;
-  private allowWrite: boolean;
 
   constructor(options: ServerOptions) {
     this.app = express();
     this.config = options.config;
     this.port = options.port;
-    this.allowWrite = options.allowWrite ?? false;
-    this.connector = createConnector(this.config);
+    this.client = new DatabaseClient({
+      config: options.config,
+      allowWrite: options.allowWrite,
+    });
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -74,20 +74,8 @@ export class SqlProxyServer {
         // Log the raw SQL query
         console.log(`[${new Date().toISOString()}] SQL: ${sql}`);
 
-        // Validate the query against disallowed tables and read-only mode
-        const validation = validateQuery(sql, this.config.disallowed_tables, !this.allowWrite);
-
-        if (!validation.valid) {
-          res.status(403).json({
-            success: false,
-            error: validation.error,
-            disallowed_tables: validation.disallowedTables,
-          });
-          return;
-        }
-
-        // Execute the query
-        const result = await this.connector.executeQuery(sql);
+        // Validate and execute the query
+        const result = await this.client.validateAndExecuteQuery(sql);
 
         if (result.success) {
           res.json({
@@ -96,9 +84,12 @@ export class SqlProxyServer {
             rowCount: result.rowCount,
           });
         } else {
-          res.status(400).json({
+          // Check if it's a validation error (403) or execution error (400)
+          const statusCode = result.validation && !result.validation.valid ? 403 : 400;
+          res.status(statusCode).json({
             success: false,
             error: result.error,
+            disallowed_tables: result.validation?.disallowedTables,
           });
         }
       } catch (error: any) {
@@ -113,11 +104,11 @@ export class SqlProxyServer {
     // List tables endpoint
     this.app.get('/tables', async (req: Request, res: Response) => {
       try {
-        const tables = await this.connector.listTables();
+        const tables = await this.client.listTables();
         res.json({
           success: true,
           tables,
-          disallowed_tables: this.config.disallowed_tables || [],
+          disallowed_tables: this.client.getDisallowedTables(),
         });
       } catch (error: any) {
         res.status(500).json({
@@ -175,26 +166,27 @@ export class SqlProxyServer {
 
   async start(): Promise<void> {
     // Connect to the database
-    console.log(`Connecting to ${this.config.db_engine}...`);
-    await this.connector.connect();
+    console.log(`Connecting to ${this.client.getDbEngine()}...`);
+    await this.client.connect();
     console.log('Database connected successfully.\n');
 
     // List available tables
     try {
-      const tables = await this.connector.listTables();
+      const tables = await this.client.listTables();
+      const disallowedTables = this.client.getDisallowedTables();
       console.log('Available tables:');
       if (tables.length === 0) {
         console.log('  (no tables found)');
       } else {
         tables.forEach((table) => {
-          const isDisallowed = this.config.disallowed_tables?.includes(table);
+          const isDisallowed = disallowedTables.includes(table);
           console.log(`  - ${table}${isDisallowed ? ' (disallowed)' : ''}`);
         });
       }
       console.log('');
 
-      if (this.config.disallowed_tables && this.config.disallowed_tables.length > 0) {
-        console.log('Disallowed tables:', this.config.disallowed_tables.join(', '));
+      if (disallowedTables.length > 0) {
+        console.log('Disallowed tables:', disallowedTables.join(', '));
         console.log('');
       }
     } catch (error: any) {
@@ -207,7 +199,7 @@ export class SqlProxyServer {
     this.port = actualPort;
 
     console.log(`SQL Proxy Server running on http://localhost:${this.port}`);
-    console.log(`Mode: ${this.allowWrite ? 'READ/WRITE' : 'READ-ONLY'}`);
+    console.log(`Mode: ${this.client.isWriteAllowed() ? 'READ/WRITE' : 'READ-ONLY'}`);
     console.log('');
     console.log('Endpoints:');
     console.log(`  GET  http://localhost:${this.port}/health  - Health check`);
@@ -222,6 +214,6 @@ export class SqlProxyServer {
         this.server.close(() => resolve());
       });
     }
-    await this.connector.disconnect();
+    await this.client.disconnect();
   }
 }

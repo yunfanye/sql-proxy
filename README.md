@@ -288,7 +288,108 @@ Public endpoints:
 
 ## Programmatic Usage
 
-You can also use sql-proxy as a library:
+You can also use sql-proxy as a library.
+
+### Using DatabaseClient (Recommended)
+
+The `DatabaseClient` class is the recommended way to interact with databases programmatically. It combines connection management, query validation, and execution into a single, easy-to-use class.
+
+```typescript
+import { DatabaseClient, DatabaseConfig } from '@yunfanye/sql-proxy';
+
+// Create configuration
+const config: DatabaseConfig = {
+  db_engine: 'postgresql',
+  disallowed_tables: ['users', 'secrets'],
+  db_credentials: {
+    DB_URL: 'postgresql://user:password@localhost:5432/mydb'
+  }
+};
+
+// Create client (allowWrite defaults to false)
+const client = new DatabaseClient({
+  config,
+  allowWrite: false  // Optional: set to true to allow INSERT, UPDATE, DELETE, etc.
+});
+
+// Connect to the database
+await client.connect();
+
+// Validate and execute a query
+const result = await client.validateAndExecuteQuery('SELECT * FROM products LIMIT 10');
+
+if (result.success) {
+  console.log('Data:', result.data);
+  console.log('Row count:', result.rowCount);
+} else {
+  console.error('Error:', result.error);
+  // If validation failed, details are in result.validation
+  if (result.validation?.disallowedTables) {
+    console.error('Disallowed tables:', result.validation.disallowedTables);
+  }
+}
+
+// List available tables
+const tables = await client.listTables();
+console.log('Tables:', tables);
+
+// Get client info
+console.log('DB Engine:', client.getDbEngine());
+console.log('Write allowed:', client.isWriteAllowed());
+console.log('Disallowed tables:', client.getDisallowedTables());
+
+// Disconnect when done
+await client.disconnect();
+```
+
+#### DatabaseClient API
+
+```typescript
+interface DatabaseClientOptions {
+  config: DatabaseConfig;
+  allowWrite?: boolean;  // Default: false
+}
+
+class DatabaseClient {
+  constructor(options: DatabaseClientOptions);
+
+  // Connection management
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  isConnected(): boolean;
+
+  // Query execution
+  validateAndExecuteQuery(sql: string): Promise<ExecuteResult>;
+
+  // Table operations
+  listTables(): Promise<string[]>;
+
+  // Configuration info
+  getDbEngine(): string;
+  isWriteAllowed(): boolean;
+  getDisallowedTables(): string[];
+}
+
+interface ExecuteResult {
+  success: boolean;
+  data?: any[];
+  error?: string;
+  rowCount?: number;
+  validation?: ValidationResult;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  tables: string[];
+  error?: string;
+  disallowedTables?: string[];
+  isReadOnly?: boolean;
+}
+```
+
+### Using SqlProxyServer
+
+To start a full HTTP server programmatically:
 
 ```typescript
 import { SqlProxyServer, loadConfig } from '@yunfanye/sql-proxy';
@@ -299,6 +400,84 @@ if (config) {
   await server.start();
 }
 ```
+
+### DatabaseConfig Types
+
+```typescript
+type DbEngine = 'postgresql' | 'mysql' | 'snowsql';
+
+interface StandardCredentials {
+  DB_URL: string;
+}
+
+interface SnowflakeCredentials {
+  SNOWSQL_ACCOUNT: string;
+  SNOWSQL_USER: string;
+  SNOWSQL_PWD: string;
+  SNOWSQL_WH: string;
+  SNOWSQL_DB: string;
+  SNOWSQL_SCHEMA: string;
+}
+
+interface DatabaseConfig {
+  db_engine: DbEngine;
+  disallowed_tables?: string[];
+  db_credentials: StandardCredentials | SnowflakeCredentials;
+}
+```
+
+#### Configuration Examples
+
+```typescript
+// PostgreSQL or MySQL
+const postgresConfig: DatabaseConfig = {
+  db_engine: 'postgresql', // or 'mysql'
+  disallowed_tables: ['users', 'secrets'],
+  db_credentials: {
+    DB_URL: 'postgresql://user:password@localhost:5432/mydb'
+  }
+};
+
+// Snowflake
+const snowflakeConfig: DatabaseConfig = {
+  db_engine: 'snowsql',
+  disallowed_tables: [],
+  db_credentials: {
+    SNOWSQL_ACCOUNT: 'abc123.us-east-1',
+    SNOWSQL_USER: 'myuser',
+    SNOWSQL_PWD: 'mypassword',
+    SNOWSQL_WH: 'COMPUTE_WH',
+    SNOWSQL_DB: 'MYDB',
+    SNOWSQL_SCHEMA: 'PUBLIC'
+  }
+};
+```
+
+### Using Low-Level Connectors
+
+For advanced use cases where you need direct database access without validation, you can use the connector classes directly:
+
+```typescript
+import {
+  createConnector,
+  PostgreSQLConnector,
+  MySQLConnector,
+  SnowflakeConnector
+} from '@yunfanye/sql-proxy';
+
+// Using factory function
+const connector = createConnector(config);
+await connector.connect();
+const result = await connector.executeQuery('SELECT * FROM products');
+await connector.disconnect();
+
+// Or use specific connector classes directly
+const pgConnector = new PostgreSQLConnector({
+  DB_URL: 'postgresql://user:pass@localhost:5432/mydb'
+});
+```
+
+> **Note**: When using connectors directly, queries are NOT validated against disallowed tables or read-only mode. Use `DatabaseClient` for validated query execution.
 
 ## Requirements
 
