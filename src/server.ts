@@ -6,6 +6,7 @@ import { validateQuery } from './validator';
 export interface ServerOptions {
   port: number;
   config: DatabaseConfig;
+  allowWrite?: boolean;
 }
 
 export class SqlProxyServer {
@@ -14,11 +15,13 @@ export class SqlProxyServer {
   private config: DatabaseConfig;
   private port: number;
   private server: any;
+  private allowWrite: boolean;
 
   constructor(options: ServerOptions) {
     this.app = express();
     this.config = options.config;
     this.port = options.port;
+    this.allowWrite = options.allowWrite ?? false;
     this.connector = createConnector(this.config);
 
     this.setupMiddleware();
@@ -68,8 +71,8 @@ export class SqlProxyServer {
           return;
         }
 
-        // Validate the query against disallowed tables
-        const validation = validateQuery(sql, this.config.disallowed_tables);
+        // Validate the query against disallowed tables and read-only mode
+        const validation = validateQuery(sql, this.config.disallowed_tables, !this.allowWrite);
 
         if (!validation.valid) {
           res.status(403).json({
@@ -201,6 +204,7 @@ export class SqlProxyServer {
     this.port = actualPort;
 
     console.log(`SQL Proxy Server running on http://localhost:${this.port}`);
+    console.log(`Mode: ${this.allowWrite ? 'READ/WRITE' : 'READ-ONLY'}`);
     console.log('');
     console.log('Endpoints:');
     console.log(`  GET  http://localhost:${this.port}/health  - Health check`);

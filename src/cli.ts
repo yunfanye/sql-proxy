@@ -14,12 +14,14 @@ program
   .option('-p, --port <number>', 'Port to run the server on', '3000')
   .option('-c, --config <path>', 'Path to database config file', 'database_config.json')
   .option('--public', 'Create a Cloudflare tunnel to expose the server to the public internet')
+  .option('--allow-write', 'Allow write operations (INSERT, UPDATE, DELETE, etc.). By default, only read operations are allowed.')
   .helpOption('-h, --help', 'Display help information')
   .addHelpText('after', `
 
 Examples:
-  $ npx @yunfanye/sql-proxy                    Start the server (runs setup if no config exists)
+  $ npx @yunfanye/sql-proxy                    Start the server in read-only mode
   $ npx @yunfanye/sql-proxy --port 8080        Start the server on port 8080
+  $ npx @yunfanye/sql-proxy --allow-write      Start server with write operations enabled
   $ npx @yunfanye/sql-proxy --public           Start server with public Cloudflare tunnel
   $ npx @yunfanye/sql-proxy --help             Show this help message
 
@@ -66,6 +68,8 @@ Public Access (--public):
   that can be accessed from anywhere. No Cloudflare account required.
 
 Security:
+  - By default, the server runs in READ-ONLY mode (only SELECT queries allowed)
+  - Use --allow-write to enable INSERT, UPDATE, DELETE, and other write operations
   - Use disallowed_tables to prevent access to sensitive tables
   - The server validates SQL queries before execution
   - Access to disallowed tables will be rejected with a 403 error
@@ -90,7 +94,7 @@ async function main(): Promise<void> {
   }
 
   // Create and start the server
-  const server = new SqlProxyServer({ port, config });
+  const server = new SqlProxyServer({ port, config, allowWrite: options.allowWrite });
 
   let tunnelInfo: TunnelInfo | null = null;
 

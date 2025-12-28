@@ -7,17 +7,32 @@ export interface ValidationResult {
   tables: string[];
   error?: string;
   disallowedTables?: string[];
+  isReadOnly?: boolean;
 }
 
-export function validateQuery(sql: string, disallowedTables?: string[]): ValidationResult {
+// SQL statement types that modify data
+const WRITE_OPERATIONS = ['insert', 'update', 'delete', 'replace', 'truncate', 'drop', 'alter', 'create', 'rename'];
+
+export function validateQuery(sql: string, disallowedTables?: string[], readOnly: boolean = true): ValidationResult {
   try {
     // Parse the SQL to extract table references
     const ast = parser.astify(sql);
     const tables = extractTables(ast);
+    const isReadOnly = checkIsReadOnly(ast);
+
+    // Check read-only mode
+    if (readOnly && !isReadOnly) {
+      return {
+        valid: false,
+        tables,
+        isReadOnly,
+        error: 'Write operations are not allowed. Server is running in read-only mode. Use --allow-write to enable write operations.',
+      };
+    }
 
     // If no disallowed tables are configured, allow all
     if (!disallowedTables || disallowedTables.length === 0) {
-      return { valid: true, tables };
+      return { valid: true, tables, isReadOnly };
     }
 
     // Normalize table names for comparison (case-insensitive)
@@ -30,12 +45,13 @@ export function validateQuery(sql: string, disallowedTables?: string[]): Validat
       return {
         valid: false,
         tables,
+        isReadOnly,
         disallowedTables: disallowedFound,
         error: `Access to table(s) denied: ${disallowedFound.join(', ')}`,
       };
     }
 
-    return { valid: true, tables };
+    return { valid: true, tables, isReadOnly };
   } catch (error: any) {
     return {
       valid: false,
@@ -43,6 +59,23 @@ export function validateQuery(sql: string, disallowedTables?: string[]): Validat
       error: `SQL parsing error: ${error.message}`,
     };
   }
+}
+
+function checkIsReadOnly(ast: any): boolean {
+  if (Array.isArray(ast)) {
+    return ast.every(checkIsReadOnly);
+  }
+
+  if (!ast || typeof ast !== 'object') {
+    return true;
+  }
+
+  const type = ast.type?.toLowerCase();
+  if (type && WRITE_OPERATIONS.includes(type)) {
+    return false;
+  }
+
+  return true;
 }
 
 function extractTables(ast: any): string[] {
