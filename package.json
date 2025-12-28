@@ -1,10 +1,10 @@
 {
   "name": "@yunfanye/sql-proxy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A SQL proxy server that accepts SQL queries via HTTP and executes them against configured database backends (PostgreSQL, MySQL, Snowflake)",
   "main": "dist/index.js",
   "bin": {
-    "sql-proxy": "./dist/cli.js"
+    "sql-proxy": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
