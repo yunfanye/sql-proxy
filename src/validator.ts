@@ -81,6 +81,14 @@ function checkIsReadOnly(ast: any): boolean {
 function extractTables(ast: any): string[] {
   const tables: Set<string> = new Set();
 
+  function addTable(table: any): void {
+    if (typeof table === 'string') {
+      tables.add(table);
+    } else if (table && typeof table === 'object' && typeof table.table === 'string') {
+      tables.add(table.table);
+    }
+  }
+
   function traverse(node: any): void {
     if (!node) return;
 
@@ -92,46 +100,23 @@ function extractTables(ast: any): string[] {
     if (typeof node !== 'object') return;
 
     // Handle table references in FROM clauses
-    if (node.table) {
-      tables.add(node.table);
-    }
-
-    // Handle table references in various clause types
     if (node.from) {
       extractFromClause(node.from);
     }
 
-    // Handle INSERT INTO
-    if (node.type === 'insert' && node.table) {
+    // Handle INSERT INTO, UPDATE, DELETE
+    if (['insert', 'update', 'delete'].includes(node.type) && node.table) {
       if (Array.isArray(node.table)) {
-        node.table.forEach((t: any) => {
-          if (t.table) tables.add(t.table);
-        });
-      } else if (node.table.table) {
-        tables.add(node.table.table);
+        node.table.forEach((t: any) => addTable(t));
+      } else {
+        addTable(node.table);
       }
     }
 
-    // Handle UPDATE
-    if (node.type === 'update' && node.table) {
-      if (Array.isArray(node.table)) {
-        node.table.forEach((t: any) => {
-          if (t.table) tables.add(t.table);
-        });
-      } else if (node.table.table) {
-        tables.add(node.table.table);
-      }
-    }
-
-    // Handle DELETE FROM
-    if (node.type === 'delete' && node.table) {
-      if (Array.isArray(node.table)) {
-        node.table.forEach((t: any) => {
-          if (t.table) tables.add(t.table);
-        });
-      } else if (node.table.table) {
-        tables.add(node.table.table);
-      }
+    // Handle simple table property (for SELECT and other cases)
+    // Only add if it's a string to avoid duplicates from complex nodes
+    if (typeof node.table === 'string') {
+      tables.add(node.table);
     }
 
     // Recursively process all object properties
@@ -147,16 +132,14 @@ function extractTables(ast: any): string[] {
 
     if (Array.isArray(from)) {
       from.forEach((item) => {
-        if (item.table) {
-          tables.add(item.table);
-        }
+        addTable(item);
         // Handle subqueries
         if (item.expr) {
           traverse(item.expr);
         }
       });
-    } else if (from.table) {
-      tables.add(from.table);
+    } else {
+      addTable(from);
     }
   }
 
