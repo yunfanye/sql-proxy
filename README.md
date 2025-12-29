@@ -4,7 +4,7 @@ A lightweight SQL proxy server that accepts SQL queries via HTTP and executes th
 
 ## Features
 
-- **Multi-database support**: Connect to PostgreSQL, MySQL, or Snowflake
+- **Multi-database support**: Connect to PostgreSQL, MySQL, Snowflake, or another sql-proxy instance
 - **HTTP API**: Execute SQL queries via simple HTTP requests
 - **Read-only by default**: Only SELECT queries allowed unless `--allow-write` is specified
 - **Table access control**: Configure disallowed tables to prevent access to sensitive data
@@ -87,11 +87,25 @@ The server reads configuration from `database_config.json` in the current workin
 }
 ```
 
+### SQL Proxy (Chaining)
+
+Connect to another sql-proxy instance for chaining proxies or accessing remote databases through a proxy:
+
+```json
+{
+  "db_engine": "sql-proxy",
+  "disallowed_tables": [],
+  "db_credentials": {
+    "DB_URL": "http://localhost:3001"
+  }
+}
+```
+
 ### Configuration Options
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `db_engine` | string | Yes | Database engine: `postgresql`, `mysql`, or `snowsql` |
+| `db_engine` | string | Yes | Database engine: `postgresql`, `mysql`, `snowsql`, or `sql-proxy` |
 | `disallowed_tables` | string[] | No | List of table names that cannot be queried |
 | `db_credentials` | object | Yes | Database connection credentials |
 
@@ -404,7 +418,7 @@ if (config) {
 ### DatabaseConfig Types
 
 ```typescript
-type DbEngine = 'postgresql' | 'mysql' | 'snowsql';
+type DbEngine = 'postgresql' | 'mysql' | 'snowsql' | 'sql-proxy';
 
 interface StandardCredentials {
   DB_URL: string;
@@ -451,6 +465,15 @@ const snowflakeConfig: DatabaseConfig = {
     SNOWSQL_SCHEMA: 'PUBLIC'
   }
 };
+
+// SQL Proxy (chaining to another sql-proxy instance)
+const sqlProxyConfig: DatabaseConfig = {
+  db_engine: 'sql-proxy',
+  disallowed_tables: [],
+  db_credentials: {
+    DB_URL: 'http://localhost:3001'
+  }
+};
 ```
 
 ### Using Low-Level Connectors
@@ -462,7 +485,8 @@ import {
   createConnector,
   PostgreSQLConnector,
   MySQLConnector,
-  SnowflakeConnector
+  SnowflakeConnector,
+  SqlProxyConnector
 } from '@yunfanye/sql-proxy';
 
 // Using factory function

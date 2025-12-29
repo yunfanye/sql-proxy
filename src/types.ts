@@ -1,4 +1,4 @@
-export type DbEngine = 'postgresql' | 'mysql' | 'snowsql';
+export type DbEngine = 'postgresql' | 'mysql' | 'snowsql' | 'sql-proxy';
 
 export interface SnowflakeCredentials {
   SNOWSQL_ACCOUNT: string;
