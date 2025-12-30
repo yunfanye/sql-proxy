@@ -79,6 +79,24 @@ export class DatabaseClient {
   }
 
   /**
+   * Executes a SQL query without validation.
+   * Use this method when you need to bypass validation checks (e.g., for trusted queries
+   * or when validation has already been performed externally).
+   * @param sql - The SQL query to execute
+   * @returns The query result
+   */
+  async executeQuery(sql: string): Promise<QueryResult> {
+    if (!this.connected) {
+      return {
+        success: false,
+        error: 'Not connected to database. Call connect() first.',
+      };
+    }
+
+    return this.connector.executeQuery(sql);
+  }
+
+  /**
    * Validates and executes a SQL query.
    * The query is first validated against disallowed tables and read-only mode,
    * then executed if validation passes.
