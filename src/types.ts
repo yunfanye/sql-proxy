@@ -11,6 +11,7 @@ export interface SnowflakeCredentials {
 
 export interface StandardCredentials {
   DB_URL: string;
+  AUTH_TOKEN?: string;
 }
 
 export type DbCredentials = SnowflakeCredentials | StandardCredentials;

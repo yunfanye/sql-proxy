@@ -15,6 +15,7 @@ program
   .option('-c, --config <path>', 'Path to database config file', 'database_config.json')
   .option('--public', 'Create a Cloudflare tunnel to expose the server to the public internet')
   .option('--allow-write', 'Allow write operations (INSERT, UPDATE, DELETE, etc.). By default, only read operations are allowed.')
+  .option('--auth-token <token>', 'Require this auth token in HTTP header for all requests. If set, clients must include "Authorization: Bearer <token>" header.')
   .helpOption('-h, --help', 'Display help information')
   .addHelpText('after', `
 
@@ -23,6 +24,7 @@ Examples:
   $ npx @yunfanye/sql-proxy --port 8080        Start the server on port 8080
   $ npx @yunfanye/sql-proxy --allow-write      Start server with write operations enabled
   $ npx @yunfanye/sql-proxy --public           Start server with public Cloudflare tunnel
+  $ npx @yunfanye/sql-proxy --auth-token abc   Require 'Authorization: Bearer abc' header
   $ npx @yunfanye/sql-proxy --help             Show this help message
 
 Configuration:
@@ -33,6 +35,7 @@ Configuration:
     - postgresql  PostgreSQL database
     - mysql       MySQL database
     - snowsql     Snowflake data warehouse
+    - sql-proxy   Chain to another sql-proxy instance
 
   Example database_config.json for PostgreSQL/MySQL:
     {
@@ -57,6 +60,15 @@ Configuration:
       }
     }
 
+  Example database_config.json for chaining to another sql-proxy:
+    {
+      "db_engine": "sql-proxy",
+      "db_credentials": {
+        "DB_URL": "http://localhost:3001",
+        "AUTH_TOKEN": "secret-token"
+      }
+    }
+
 API Endpoints:
   GET  /health   Health check endpoint
   POST /query    Execute a SQL query (JSON body: { "sql": "SELECT ..." })
@@ -73,6 +85,7 @@ Security:
   - Use disallowed_tables to prevent access to sensitive tables
   - The server validates SQL queries before execution
   - Access to disallowed tables will be rejected with a 403 error
+  - Use --auth-token to require authentication via 'Authorization: Bearer <token>' header
 `);
 
 async function main(): Promise<void> {
@@ -94,7 +107,7 @@ async function main(): Promise<void> {
   }
 
   // Create and start the server
-  const server = new SqlProxyServer({ port, config, allowWrite: options.allowWrite });
+  const server = new SqlProxyServer({ port, config, allowWrite: options.allowWrite, authToken: options.authToken });
 
   let tunnelInfo: TunnelInfo | null = null;
 

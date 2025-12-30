@@ -6,6 +6,7 @@ export interface ServerOptions {
   port: number;
   config: DatabaseConfig;
   allowWrite?: boolean;
+  authToken?: string;
 }
 
 export class SqlProxyServer {
@@ -14,11 +15,13 @@ export class SqlProxyServer {
   private config: DatabaseConfig;
   private port: number;
   private server: any;
+  private authToken?: string;
 
   constructor(options: ServerOptions) {
     this.app = express();
     this.config = options.config;
     this.port = options.port;
+    this.authToken = options.authToken;
     this.client = new DatabaseClient({
       config: options.config,
       allowWrite: options.allowWrite,
@@ -37,6 +40,29 @@ export class SqlProxyServer {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
       next();
     });
+
+    // Auth token validation
+    if (this.authToken) {
+      this.app.use((req: Request, res: Response, next: NextFunction) => {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          res.status(401).json({
+            success: false,
+            error: 'Missing or invalid Authorization header. Expected: Bearer <token>',
+          });
+          return;
+        }
+        const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+        if (token !== this.authToken) {
+          res.status(403).json({
+            success: false,
+            error: 'Invalid auth token',
+          });
+          return;
+        }
+        next();
+      });
+    }
   }
 
   private setupRoutes(): void {
@@ -200,6 +226,7 @@ export class SqlProxyServer {
 
     console.log(`SQL Proxy Server running on http://localhost:${this.port}`);
     console.log(`Mode: ${this.client.isWriteAllowed() ? 'READ/WRITE' : 'READ-ONLY'}`);
+    console.log(`Auth: ${this.authToken ? 'ENABLED (Bearer token required)' : 'DISABLED'}`);
     console.log('');
     console.log('Endpoints:');
     console.log(`  GET  http://localhost:${this.port}/health  - Health check`);

@@ -16,15 +16,27 @@ interface SqlProxyTablesResponse {
 export class SqlProxyConnector implements DatabaseConnector {
   private baseUrl: string;
   private connected: boolean = false;
+  private authToken?: string;
 
   constructor(credentials: StandardCredentials) {
     // Remove trailing slash if present
     this.baseUrl = credentials.DB_URL.replace(/\/$/, '');
+    this.authToken = credentials.AUTH_TOKEN;
+  }
+
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
+    }
+    return headers;
   }
 
   async connect(): Promise<void> {
     // Test the connection by hitting the health endpoint
-    const response = await fetch(`${this.baseUrl}/health`);
+    const response = await fetch(`${this.baseUrl}/health`, {
+      headers: this.getHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to connect to sql-proxy at ${this.baseUrl}: ${response.statusText}`);
     }
@@ -45,6 +57,7 @@ export class SqlProxyConnector implements DatabaseConnector {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...this.getHeaders(),
         },
         body: JSON.stringify({ sql }),
       });
@@ -76,7 +89,9 @@ export class SqlProxyConnector implements DatabaseConnector {
       throw new Error('Not connected to sql-proxy');
     }
 
-    const response = await fetch(`${this.baseUrl}/tables`);
+    const response = await fetch(`${this.baseUrl}/tables`, {
+      headers: this.getHeaders(),
+    });
     const result = await response.json() as SqlProxyTablesResponse;
 
     if (result.success && result.tables) {
