@@ -12,7 +12,7 @@ A lightweight SQL proxy server that accepts SQL queries via HTTP and executes th
 - **Query logging**: All SQL queries are logged to the console with timestamps
 - **Interactive setup**: Guided configuration wizard when no config file exists
 - **Zero configuration start**: Just run `npx @yunfanye/sql-proxy` to get started
-- **Public access**: Expose your server to the internet via Cloudflare tunnel with `--public`
+- **Cloudflare Tunnel**: Expose your server to the internet via Cloudflare tunnel with `--tunnel`
 
 ## Installation
 
@@ -120,7 +120,7 @@ npx @yunfanye/sql-proxy [options]
 | `-p, --port <number>` | Port to run the server on | 3000 |
 | `-c, --config <path>` | Path to database config file | database_config.json |
 | `--allow-write` | Allow write operations (INSERT, UPDATE, DELETE, etc.) | Read-only |
-| `--public` | Create a Cloudflare tunnel for public access | - |
+| `--tunnel` | Create a Cloudflare tunnel for public access | - |
 | `-h, --help` | Display help information | - |
 | `-V, --version` | Display version number | - |
 
@@ -137,10 +137,10 @@ npx @yunfanye/sql-proxy --port 8080
 npx @yunfanye/sql-proxy --allow-write
 
 # Start with public internet access
-npx @yunfanye/sql-proxy --public
+npx @yunfanye/sql-proxy --tunnel
 
 # Combine options
-npx @yunfanye/sql-proxy --port 8080 --allow-write --public
+npx @yunfanye/sql-proxy --port 8080 --allow-write --tunnel
 
 # Display help
 npx @yunfanye/sql-proxy --help
@@ -267,12 +267,12 @@ All SQL queries are logged to the console with timestamps for auditing and debug
 [2025-01-15T10:30:46.458Z] SQL: UPDATE products SET price = 29.99 WHERE id = 1
 ```
 
-## Public Access with Cloudflare Tunnel
+## Cloudflare Tunnel
 
-Use the `--public` flag to expose your local server to the internet via a Cloudflare tunnel:
+Use the `--tunnel` flag to expose your local server to the internet via a Cloudflare tunnel:
 
 ```bash
-npx @yunfanye/sql-proxy --public
+npx @yunfanye/sql-proxy --tunnel
 ```
 
 This will:

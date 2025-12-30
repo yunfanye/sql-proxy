@@ -13,7 +13,7 @@ program
   .version('1.0.0')
   .option('-p, --port <number>', 'Port to run the server on', '3000')
   .option('-c, --config <path>', 'Path to database config file', 'database_config.json')
-  .option('--public', 'Create a Cloudflare tunnel to expose the server to the public internet')
+  .option('--tunnel', 'Create a Cloudflare tunnel to expose the server to the public internet')
   .option('--allow-write', 'Allow write operations (INSERT, UPDATE, DELETE, etc.). By default, only read operations are allowed.')
   .option('--auth-token <token>', 'Require this auth token in HTTP header for all requests. If set, clients must include "Authorization: Bearer <token>" header.')
   .helpOption('-h, --help', 'Display help information')
@@ -23,7 +23,7 @@ Examples:
   $ npx @yunfanye/sql-proxy                    Start the server in read-only mode
   $ npx @yunfanye/sql-proxy --port 8080        Start the server on port 8080
   $ npx @yunfanye/sql-proxy --allow-write      Start server with write operations enabled
-  $ npx @yunfanye/sql-proxy --public           Start server with public Cloudflare tunnel
+  $ npx @yunfanye/sql-proxy --tunnel           Start server with public Cloudflare tunnel
   $ npx @yunfanye/sql-proxy --auth-token abc   Require 'Authorization: Bearer abc' header
   $ npx @yunfanye/sql-proxy --help             Show this help message
 
@@ -74,8 +74,8 @@ API Endpoints:
   POST /query    Execute a SQL query (JSON body: { "sql": "SELECT ..." })
   GET  /tables   List all available tables
 
-Public Access (--public):
-  When using --public, the server creates a Cloudflare tunnel that exposes
+Cloudflare Tunnel (--tunnel):
+  When using --tunnel, the server creates a Cloudflare tunnel that exposes
   your local server to the public internet. A unique URL will be printed
   that can be accessed from anywhere. No Cloudflare account required.
 
@@ -131,8 +131,8 @@ async function main(): Promise<void> {
   try {
     await server.start();
 
-    // Create tunnel if --public flag is set (use actual port in case it changed)
-    if (options.public) {
+    // Create tunnel if --tunnel flag is set (use actual port in case it changed)
+    if (options.tunnel) {
       const actualPort = server.getPort();
       tunnelInfo = await createTunnel(actualPort);
       console.log('');
