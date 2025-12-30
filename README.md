@@ -13,6 +13,7 @@ A lightweight SQL proxy server that accepts SQL queries via HTTP and executes th
 - **Interactive setup**: Guided configuration wizard when no config file exists
 - **Zero configuration start**: Just run `npx @yunfanye/sql-proxy` to get started
 - **Cloudflare Tunnel**: Expose your server to the internet via Cloudflare tunnel with `--tunnel`
+- **Authentication**: Optional Bearer token authentication with `--auth-token`
 
 ## Installation
 
@@ -96,10 +97,13 @@ Connect to another sql-proxy instance for chaining proxies or accessing remote d
   "db_engine": "sql-proxy",
   "disallowed_tables": [],
   "db_credentials": {
-    "DB_URL": "http://localhost:3001"
+    "DB_URL": "http://localhost:3001",
+    "AUTH_TOKEN": "secret-token"
   }
 }
 ```
+
+The `AUTH_TOKEN` is optional. If provided, it will be sent as a `Authorization: Bearer <token>` header when connecting to the upstream sql-proxy server.
 
 ### Configuration Options
 
@@ -120,6 +124,7 @@ npx @yunfanye/sql-proxy [options]
 | `-p, --port <number>` | Port to run the server on | 3000 |
 | `-c, --config <path>` | Path to database config file | database_config.json |
 | `--allow-write` | Allow write operations (INSERT, UPDATE, DELETE, etc.) | Read-only |
+| `--auth-token <token>` | Require Bearer token authentication for all requests | Disabled |
 | `--tunnel` | Create a Cloudflare tunnel for public access | - |
 | `-h, --help` | Display help information | - |
 | `-V, --version` | Display version number | - |
@@ -139,8 +144,11 @@ npx @yunfanye/sql-proxy --allow-write
 # Start with public internet access
 npx @yunfanye/sql-proxy --tunnel
 
+# Start with authentication required
+npx @yunfanye/sql-proxy --auth-token mysecrettoken
+
 # Combine options
-npx @yunfanye/sql-proxy --port 8080 --allow-write --tunnel
+npx @yunfanye/sql-proxy --port 8080 --allow-write --tunnel --auth-token mysecrettoken
 
 # Display help
 npx @yunfanye/sql-proxy --help
@@ -213,6 +221,31 @@ List all available tables in the database.
 ```
 
 ## Security Features
+
+### Authentication
+
+Use the `--auth-token` flag to require authentication for all API requests:
+
+```bash
+npx @yunfanye/sql-proxy --auth-token mysecrettoken
+```
+
+When authentication is enabled, all requests must include the `Authorization` header with the Bearer token:
+
+```bash
+curl -X POST http://localhost:3000/query \
+  -H "Authorization: Bearer mysecrettoken" \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT * FROM products"}'
+```
+
+**Error Response (Missing or invalid token):**
+```json
+{
+  "success": false,
+  "error": "Missing or invalid Authorization header. Expected: Bearer <token>"
+}
+```
 
 ### Read-Only Mode (Default)
 
@@ -422,6 +455,7 @@ type DbEngine = 'postgresql' | 'mysql' | 'snowsql' | 'sql-proxy';
 
 interface StandardCredentials {
   DB_URL: string;
+  AUTH_TOKEN?: string;  // For sql-proxy chaining
 }
 
 interface SnowflakeCredentials {
@@ -471,7 +505,8 @@ const sqlProxyConfig: DatabaseConfig = {
   db_engine: 'sql-proxy',
   disallowed_tables: [],
   db_credentials: {
-    DB_URL: 'http://localhost:3001'
+    DB_URL: 'http://localhost:3001',
+    AUTH_TOKEN: 'secret-token'  // Optional: for authenticated upstream
   }
 };
 ```
