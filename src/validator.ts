@@ -13,10 +13,18 @@ export interface ValidationResult {
 // SQL statement types that modify data
 const WRITE_OPERATIONS = ['insert', 'update', 'delete', 'replace', 'truncate', 'drop', 'alter', 'create', 'rename'];
 
-export function validateQuery(sql: string, disallowedTables?: string[], readOnly: boolean = true): ValidationResult {
+export function validateQuery(sql: string, disallowedTables?: string[], readOnly: boolean = true, dbEngine?: string): ValidationResult {
   try {
+    // Map db engine to node-sql-parser database option
+    const databaseMap: Record<string, string> = {
+      postgresql: 'PostgreSQL',
+      mysql: 'MySQL',
+      snowflake: 'Snowflake',
+    };
+    const database = dbEngine ? databaseMap[dbEngine.toLowerCase()] : undefined;
+
     // Parse the SQL to extract table references
-    const ast = parser.astify(sql);
+    const ast = parser.astify(sql, database ? { database } : undefined);
     const tables = extractTables(ast);
     const isReadOnly = checkIsReadOnly(ast);
 

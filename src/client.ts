@@ -112,7 +112,7 @@ export class DatabaseClient {
     }
 
     // Validate the query
-    const validation = validateQuery(sql, this.config.disallowed_tables, !this.allowWrite);
+    const validation = validateQuery(sql, this.config.disallowed_tables, !this.allowWrite, this.config.db_engine);
 
     if (!validation.valid) {
       return {
