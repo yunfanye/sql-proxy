@@ -72,6 +72,13 @@ export class DatabaseClient {
   }
 
   /**
+   * Returns the list of allowed tables.
+   */
+  getAllowedTables(): string[] {
+    return this.config.allowed_tables ?? [];
+  }
+
+  /**
    * Returns the list of disallowed tables.
    */
   getDisallowedTables(): string[] {
@@ -112,7 +119,7 @@ export class DatabaseClient {
     }
 
     // Validate the query
-    const validation = validateQuery(sql, this.config.disallowed_tables, !this.allowWrite, this.config.db_engine);
+    const validation = validateQuery(sql, this.config.allowed_tables, this.config.disallowed_tables, !this.allowWrite, this.config.db_engine);
 
     if (!validation.valid) {
       return {

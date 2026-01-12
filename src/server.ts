@@ -115,6 +115,7 @@ export class SqlProxyServer {
           res.status(statusCode).json({
             success: false,
             error: result.error,
+            allowed_tables: result.validation?.allowedTables,
             disallowed_tables: result.validation?.disallowedTables,
           });
         }
@@ -134,6 +135,7 @@ export class SqlProxyServer {
         res.json({
           success: true,
           tables,
+          allowed_tables: this.client.getAllowedTables(),
           disallowed_tables: this.client.getDisallowedTables(),
         });
       } catch (error: any) {
@@ -199,19 +201,29 @@ export class SqlProxyServer {
     // List available tables
     try {
       const tables = await this.client.listTables();
+      const allowedTables = this.client.getAllowedTables();
       const disallowedTables = this.client.getDisallowedTables();
       console.log('Available tables:');
       if (tables.length === 0) {
         console.log('  (no tables found)');
       } else {
         tables.forEach((table) => {
-          const isDisallowed = disallowedTables.includes(table);
-          console.log(`  - ${table}${isDisallowed ? ' (disallowed)' : ''}`);
+          // allowed_tables takes priority over disallowed_tables
+          if (allowedTables.length > 0) {
+            const isAllowed = allowedTables.map(t => t.toLowerCase()).includes(table.toLowerCase());
+            console.log(`  - ${table}${isAllowed ? '' : ' (not allowed)'}`);
+          } else {
+            const isDisallowed = disallowedTables.map(t => t.toLowerCase()).includes(table.toLowerCase());
+            console.log(`  - ${table}${isDisallowed ? ' (disallowed)' : ''}`);
+          }
         });
       }
       console.log('');
 
-      if (disallowedTables.length > 0) {
+      if (allowedTables.length > 0) {
+        console.log('Allowed tables:', allowedTables.join(', '));
+        console.log('');
+      } else if (disallowedTables.length > 0) {
         console.log('Disallowed tables:', disallowedTables.join(', '));
         console.log('');
       }

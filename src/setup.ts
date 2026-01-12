@@ -227,29 +227,57 @@ export async function runSetup(): Promise<DatabaseConfig> {
     credentials = urlAnswers;
   }
 
-  const { configureDisallowed } = await inquirer.prompt<{ configureDisallowed: boolean }>([
+  const { configureAllowed } = await inquirer.prompt<{ configureAllowed: boolean }>([
     {
       type: 'confirm',
-      name: 'configureDisallowed',
-      message: 'Would you like to configure disallowed tables?',
+      name: 'configureAllowed',
+      message: 'Would you like to configure allowed tables (allowlist)?',
       default: false,
     },
   ]);
 
+  let allowedTables: string[] | undefined;
   let disallowedTables: string[] | undefined;
 
-  if (configureDisallowed) {
+  if (configureAllowed) {
     const { tables } = await inquirer.prompt<{ tables: string }>([
       {
         type: 'input',
         name: 'tables',
-        message: 'Enter comma-separated table names to disallow:',
+        message: 'Enter comma-separated table names to allow (only these tables will be accessible):',
         filter: (input) => input.trim(),
       },
     ]);
 
     if (tables) {
-      disallowedTables = tables.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+      allowedTables = tables.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+    }
+  }
+
+  // Only ask about disallowed tables if allowed tables is not configured
+  if (!allowedTables || allowedTables.length === 0) {
+    const { configureDisallowed } = await inquirer.prompt<{ configureDisallowed: boolean }>([
+      {
+        type: 'confirm',
+        name: 'configureDisallowed',
+        message: 'Would you like to configure disallowed tables (blocklist)?',
+        default: false,
+      },
+    ]);
+
+    if (configureDisallowed) {
+      const { tables } = await inquirer.prompt<{ tables: string }>([
+        {
+          type: 'input',
+          name: 'tables',
+          message: 'Enter comma-separated table names to disallow:',
+          filter: (input) => input.trim(),
+        },
+      ]);
+
+      if (tables) {
+        disallowedTables = tables.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+      }
     }
   }
 
@@ -257,6 +285,10 @@ export async function runSetup(): Promise<DatabaseConfig> {
     db_engine: dbEngine,
     db_credentials: credentials,
   };
+
+  if (allowedTables && allowedTables.length > 0) {
+    config.allowed_tables = allowedTables;
+  }
 
   if (disallowedTables && disallowedTables.length > 0) {
     config.disallowed_tables = disallowedTables;

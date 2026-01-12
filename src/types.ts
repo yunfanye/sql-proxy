@@ -18,6 +18,7 @@ export type DbCredentials = SnowflakeCredentials | StandardCredentials;
 
 export interface DatabaseConfig {
   db_engine: DbEngine;
+  allowed_tables?: string[];
   disallowed_tables?: string[];
   db_credentials: DbCredentials;
 }

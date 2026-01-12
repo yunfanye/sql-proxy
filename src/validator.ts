@@ -6,6 +6,7 @@ export interface ValidationResult {
   valid: boolean;
   tables: string[];
   error?: string;
+  allowedTables?: string[];
   disallowedTables?: string[];
   isReadOnly?: boolean;
 }
@@ -13,11 +14,11 @@ export interface ValidationResult {
 // SQL statement types that modify data
 const WRITE_OPERATIONS = ['insert', 'update', 'delete', 'replace', 'truncate', 'drop', 'alter', 'create', 'rename'];
 
-export function validateQuery(sql: string, disallowedTables?: string[], readOnly: boolean = true, dbEngine?: string): ValidationResult {
+export function validateQuery(sql: string, allowedTables?: string[], disallowedTables?: string[], readOnly: boolean = true, dbEngine?: string): ValidationResult {
   try {
     // Map db engine to node-sql-parser database option
     const databaseMap: Record<string, string> = {
-      postgresql: 'PostgreSQL',
+      postgresql: 'Postgresql',
       mysql: 'MySQL',
       snowflake: 'Snowflake',
     };
@@ -38,7 +39,24 @@ export function validateQuery(sql: string, disallowedTables?: string[], readOnly
       };
     }
 
-    // If no disallowed tables are configured, allow all
+    // Priority: allowed_tables > disallowed_tables
+    if (allowedTables && allowedTables.length > 0) {
+      // Allowlist mode: only permit specified tables
+      const normalizedAllowed = allowedTables.map((t) => t.toLowerCase());
+      const notAllowed = tables.filter((t) => !normalizedAllowed.includes(t.toLowerCase()));
+      if (notAllowed.length > 0) {
+        return {
+          valid: false,
+          tables,
+          isReadOnly,
+          allowedTables: notAllowed,
+          error: `Access to table(s) denied (not in allowed list): ${notAllowed.join(', ')}`,
+        };
+      }
+      return { valid: true, tables, isReadOnly };
+    }
+
+    // Blocklist mode: if no disallowed tables are configured, allow all
     if (!disallowedTables || disallowedTables.length === 0) {
       return { valid: true, tables, isReadOnly };
     }

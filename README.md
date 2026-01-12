@@ -64,6 +64,7 @@ The server reads configuration from `database_config.json` in the current workin
 ```json
 {
   "db_engine": "postgresql",
+  "allowed_tables": ["products", "orders"],
   "disallowed_tables": ["users", "secrets"],
   "db_credentials": {
     "DB_URL": "postgresql://user:password@localhost:5432/mydb"
@@ -76,6 +77,7 @@ The server reads configuration from `database_config.json` in the current workin
 ```json
 {
   "db_engine": "snowsql",
+  "allowed_tables": [],
   "disallowed_tables": [],
   "db_credentials": {
     "SNOWSQL_ACCOUNT": "abc123.us-east-1",
@@ -95,6 +97,7 @@ Connect to another sql-proxy instance for chaining proxies or accessing remote d
 ```json
 {
   "db_engine": "sql-proxy",
+  "allowed_tables": [],
   "disallowed_tables": [],
   "db_credentials": {
     "DB_URL": "http://localhost:3001",
@@ -110,7 +113,8 @@ The `AUTH_TOKEN` is optional. If provided, it will be sent as a `Authorization: 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `db_engine` | string | Yes | Database engine: `postgresql`, `mysql`, `snowsql`, or `sql-proxy` |
-| `disallowed_tables` | string[] | No | List of table names that cannot be queried |
+| `allowed_tables` | string[] | No | List of table names that can be queried (allowlist). If set, takes priority over `disallowed_tables` |
+| `disallowed_tables` | string[] | No | List of table names that cannot be queried (blocklist) |
 | `db_credentials` | object | Yes | Database connection credentials |
 
 ## CLI Options
@@ -267,7 +271,25 @@ npx @yunfanye/sql-proxy --allow-write
 
 ### Table Access Control
 
-Use the `disallowed_tables` configuration to prevent access to sensitive tables:
+You can control which tables are accessible using either an **allowlist** or **blocklist** approach:
+
+#### Allowlist (allowed_tables)
+
+Use `allowed_tables` to specify exactly which tables can be queried. All other tables will be blocked:
+
+```json
+{
+  "db_engine": "postgresql",
+  "allowed_tables": ["products", "categories", "orders"],
+  "db_credentials": {
+    "DB_URL": "postgresql://user:password@localhost:5432/mydb"
+  }
+}
+```
+
+#### Blocklist (disallowed_tables)
+
+Use `disallowed_tables` to block specific sensitive tables while allowing all others:
 
 ```json
 {
@@ -279,14 +301,16 @@ Use the `disallowed_tables` configuration to prevent access to sensitive tables:
 }
 ```
 
-When a query attempts to access a disallowed table, it will be rejected with a 403 error before reaching the database.
+**Priority:** If both `allowed_tables` and `disallowed_tables` are configured, `allowed_tables` takes priority and `disallowed_tables` is ignored.
+
+When a query attempts to access a restricted table, it will be rejected with a 403 error before reaching the database.
 
 ### SQL Parsing
 
 All SQL queries are parsed using [node-sql-parser](https://github.com/taozhi8833998/node-sql-parser) to:
 
 - Extract table names from the query
-- Validate against the disallowed tables list
+- Validate against the allowed/disallowed tables list
 - Detect malformed SQL before execution
 
 ### Query Logging
@@ -347,7 +371,8 @@ import { DatabaseClient, DatabaseConfig } from '@yunfanye/sql-proxy';
 // Create configuration
 const config: DatabaseConfig = {
   db_engine: 'postgresql',
-  disallowed_tables: ['users', 'secrets'],
+  allowed_tables: ['products', 'categories'],  // Only these tables can be queried
+  disallowed_tables: ['users', 'secrets'],     // Ignored when allowed_tables is set
   db_credentials: {
     DB_URL: 'postgresql://user:password@localhost:5432/mydb'
   }
@@ -371,6 +396,9 @@ if (result.success) {
 } else {
   console.error('Error:', result.error);
   // If validation failed, details are in result.validation
+  if (result.validation?.allowedTables) {
+    console.error('Tables not in allowed list:', result.validation.allowedTables);
+  }
   if (result.validation?.disallowedTables) {
     console.error('Disallowed tables:', result.validation.disallowedTables);
   }
@@ -383,6 +411,7 @@ console.log('Tables:', tables);
 // Get client info
 console.log('DB Engine:', client.getDbEngine());
 console.log('Write allowed:', client.isWriteAllowed());
+console.log('Allowed tables:', client.getAllowedTables());
 console.log('Disallowed tables:', client.getDisallowedTables());
 
 // Disconnect when done
@@ -414,6 +443,7 @@ class DatabaseClient {
   // Configuration info
   getDbEngine(): string;
   isWriteAllowed(): boolean;
+  getAllowedTables(): string[];
   getDisallowedTables(): string[];
 }
 
@@ -429,7 +459,8 @@ interface ValidationResult {
   valid: boolean;
   tables: string[];
   error?: string;
-  disallowedTables?: string[];
+  allowedTables?: string[];    // Tables not in allowed list (when using allowlist)
+  disallowedTables?: string[]; // Tables in disallowed list (when using blocklist)
   isReadOnly?: boolean;
 }
 ```
@@ -469,7 +500,8 @@ interface SnowflakeCredentials {
 
 interface DatabaseConfig {
   db_engine: DbEngine;
-  disallowed_tables?: string[];
+  allowed_tables?: string[];    // Allowlist (takes priority if set)
+  disallowed_tables?: string[]; // Blocklist
   db_credentials: StandardCredentials | SnowflakeCredentials;
 }
 ```
@@ -477,10 +509,19 @@ interface DatabaseConfig {
 #### Configuration Examples
 
 ```typescript
-// PostgreSQL or MySQL
+// PostgreSQL or MySQL with allowlist
 const postgresConfig: DatabaseConfig = {
   db_engine: 'postgresql', // or 'mysql'
-  disallowed_tables: ['users', 'secrets'],
+  allowed_tables: ['products', 'categories'],  // Only these tables accessible
+  db_credentials: {
+    DB_URL: 'postgresql://user:password@localhost:5432/mydb'
+  }
+};
+
+// PostgreSQL or MySQL with blocklist
+const postgresBlocklistConfig: DatabaseConfig = {
+  db_engine: 'postgresql',
+  disallowed_tables: ['users', 'secrets'],  // These tables blocked
   db_credentials: {
     DB_URL: 'postgresql://user:password@localhost:5432/mydb'
   }
@@ -489,6 +530,7 @@ const postgresConfig: DatabaseConfig = {
 // Snowflake
 const snowflakeConfig: DatabaseConfig = {
   db_engine: 'snowsql',
+  allowed_tables: [],
   disallowed_tables: [],
   db_credentials: {
     SNOWSQL_ACCOUNT: 'abc123.us-east-1',
@@ -503,6 +545,7 @@ const snowflakeConfig: DatabaseConfig = {
 // SQL Proxy (chaining to another sql-proxy instance)
 const sqlProxyConfig: DatabaseConfig = {
   db_engine: 'sql-proxy',
+  allowed_tables: [],
   disallowed_tables: [],
   db_credentials: {
     DB_URL: 'http://localhost:3001',

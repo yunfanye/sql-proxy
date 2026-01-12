@@ -1,5 +1,6 @@
 {
   "db_engine": "postgresql",
+  "allowed_tables": ["products", "orders", "categories"],
   "disallowed_tables": ["users", "secrets"],
   "db_credentials": {
     "DB_URL": "postgresql://user:password@localhost:5432/mydb"
