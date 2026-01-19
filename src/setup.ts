@@ -1,7 +1,11 @@
 import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
 import snowflake from 'snowflake-sdk';
+
+// Load .env file from current working directory
+dotenv.config({ path: path.join(process.cwd(), '.env') });
 import { DatabaseConfig, DbEngine, SnowflakeCredentials, StandardCredentials } from './types';
 
 // Helper to create a temporary Snowflake connection for querying options

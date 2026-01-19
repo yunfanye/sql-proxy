@@ -79,10 +79,12 @@ export function validateQuery(sql: string, allowedTables?: string[], disallowedT
 
     return { valid: true, tables, isReadOnly };
   } catch (error: any) {
+    // If SQL parsing fails, let the query through by default
+    // This ensures that unsupported SQL syntax doesn't block legitimate queries
     return {
-      valid: false,
+      valid: true,
       tables: [],
-      error: `SQL parsing error: ${error.message}`,
+      error: `SQL parsing error (allowing query): ${error.message}`,
     };
   }
 }

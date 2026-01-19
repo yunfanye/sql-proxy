@@ -132,12 +132,18 @@ export class SqlProxyServer {
     this.app.get('/tables', async (req: Request, res: Response) => {
       try {
         const tables = await this.client.listTables();
-        res.json({
+        const response: Record<string, any> = {
           success: true,
+          db_engine: this.config.db_engine,
           tables,
           allowed_tables: this.client.getAllowedTables(),
           disallowed_tables: this.client.getDisallowedTables(),
-        });
+        };
+        // Include schema for snowsql
+        if (this.config.db_engine === 'snowsql' && 'SNOWSQL_SCHEMA' in this.config.db_credentials) {
+          response.schema = this.config.db_credentials.SNOWSQL_SCHEMA;
+        }
+        res.json(response);
       } catch (error: any) {
         res.status(500).json({
           success: false,

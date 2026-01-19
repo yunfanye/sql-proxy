@@ -43,6 +43,7 @@
   "dependencies": {
     "cloudflared": "^0.5.3",
     "commander": "^11.1.0",
+    "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "inquirer": "^8.2.6",
     "mysql2": "^3.6.5",
@@ -55,7 +56,7 @@
     "@types/inquirer": "^8.2.10",
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }
